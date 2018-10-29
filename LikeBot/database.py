@@ -1,4 +1,4 @@
-# THE MOST INTERESTING MAN IN THE WORLD
+# LikeBot
 # Author: Zachary Gillis
 #
 # DATABASE ACCESS LAYER
@@ -7,7 +7,7 @@ import mysql.connector
 from config import db_config
 
 
-class TMIMDatabase:
+class LikeBotDatabase:
     con = None
 
     def db_connect(self):
@@ -30,54 +30,83 @@ class TMIMDatabase:
         print("Connected to database.")
         self.con.close()
 
-    def get_user(self, user_id):
+    def getName(self, uid):
         self.db_connect()
-        user = None
+        name = None
         cursor = self.con.cursor()
-        sql = "SELECT * FROM users WHERE UID = %s"
-        cursor.execute(sql, (user_id,))
-        rs_user = cursor.fetchone()
-        if rs_user is not None:
-            user = User(rs_user[0], rs_user[1], rs_user[2], rs_user[3], rs_user[4])
+        sql = "SELECT * FROM things WHERE UID=%s"
+        cursor.execute(sql, (uid))
+        rs_thing = cursor.fetchone()
+        if rs_thing is not None:
+            thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
         cursor.close()
         self.con.close()
-        return user
-
-    def get_users(self):
+        return thing.name
+	
+    def getLikes(self, thing_id):
+        self.db_connect()
+        name = None
+        cursor = self.con.cursor()
+        sql = "SELECT * FROM things WHERE UID=%s"
+        cursor.execute(sql, (uid))
+        rs_thing = cursor.fetchone()
+        if rs_thing is not None:
+            thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
+        cursor.close()
+        self.con.close()
+        return thing.like_bal
+ 
+    def addLikes(self, thing_id, likes):
         self.db_connect()
         cursor = self.con.cursor()
-        user_list = []
-        sql = "SELECT * FROM users"
-        cursor.execute(sql)
+        sql = "INSERT INTO things(thing_id, like_bal) VALUES(%s, %s) ON DUPLICATE KEY UPDATE like_bal=like_bal+%s"
+        cursor.execute(sql, (thing_id, likes, likes))
+        self.con.commit()
+	cursor.close()
+        self.con.close()
+
+    def getThing(self, name):
+        self.db_connect()
+        thing = None
+        cursor = self.con.cursor()
+        sql = "SELECT * FROM things WHERE name = %s"
+        cursor.execute(sql, (name))
+        rs_thing = cursor.fetchone()
+        if rs_thing is not None:
+            thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
+        cursor.close()
+        self.con.close()
+        return thing
+
+    def scoreboard(self, display):
+	self.db_connect()
+        cursor = self.con.cursor()
+        thing_list = []
+	sql = "SELECT * FROM things ORDER BY like_bal " + display + " LIMIT 10"
+	cursor.execute(sql)
         rs = cursor.fetchall()
 
-        for rs_user in rs:
-            user = User(rs_user[0], rs_user[1], rs_user[2], rs_user[3], rs_user[4])
-            user_list.append(user)
+        for rs_thing in rs:
+            thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
+            thing_list.append(thing)
         cursor.close()
         self.con.close()
-        return user_list
-
-    def create_user(self, uid, fn, ln):
-        self.db_connect()
-        cursor = self.con.cursor()
-        sql = "INSERT INTO users(UID, first_name, last_name) VALUES(%s, %s, %s)"
-        cursor.execute(sql, (uid, fn, ln))
-        self.con.commit()
-        print("New user registered (ID=%s, FIRST=%s, LAST=%s)." % (uid, fn, ln))
-        cursor.close()
-        self.con.close()
-
-class User:
+        return thing_list
+	
+class Thing:
+    thing_id = None
     UID = None
-    first_name = None
-    last_name = None
+    name = None
     pwr_lvl = None
     like_bal = None
+    wager_uid = None
+    wager_likes = None
 
-    def __init__(self, uid, fn, ln, pwr_lvl, like_bal):
+    def __init__(self, thing_id, uid, name, pwr_lvl, like_bal, wager_uid, wager_likes):
+        self.thing_id = thing_id
         self.UID = uid
-        self.first_name = fn
-        self.last_name = ln
+        self.name = name
         self.pwr_lvl = pwr_lvl
         self.like_bal = like_bal
+        self.wager_uid = wager_uid
+        self.wager_likes = wager_likes

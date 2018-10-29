@@ -1,7 +1,7 @@
-# THE MOST INTERESTING MAN IN THE WORLD
+# LikeBot
 # SLACK CHATBOT IN PYTHON
 #
-# Author: Zachary Gillis
+# Author: Zachary Gillis & Darren Jones
 #--------------------------------------
 
 import os
@@ -10,7 +10,7 @@ import re
 import logging
 import random
 from slackclient import SlackClient
-from database import TMIMDatabase
+from database import LikeBotDatabase
 from config import SLACK_BOT_TOKEN
 import api_calls
 
@@ -64,8 +64,6 @@ def parse_direct_mention(message_text):
 
 
 def handle_command(command, channel, sender_id, text):
-    default_response = """I don't always understand people, but when I do, they don't speak gibberish like you. 
-Shotgun a Dos Equis or five and get back to me. Try *{}* to see what I can do.""".format("help")
 
     logging.info("type=command userid=%s command=%s text=%s" % (sender_id, command.lower(), text))
     # Finds and executes given command, filling in response
@@ -75,138 +73,40 @@ Shotgun a Dos Equis or five and get back to me. Try *{}* to see what I can do.""
 
     print(text)
 
+    commands = command.split(" ")
+    main_commands = {'like':1,'dislike':-1,'love':2,'hate': -2}
+
+    if command[0] in main_commands:
+        if db.getName(sender_id) == commands[1:]:
+            message(channel, "you cannot " + command[0] + " yourself, silly willy")
+        else:
+            db.addLikes(getThing(commands[1:]), main_commands[command[0]])
+            message(channel, db.getName(sender_id) + " " + commands[0] + "d " + commands[1:] + " and added " + main_commands[command[0]]
+                    + " likes. " + commands[1:] + " now has " + db.getLikes(getThing(commands[1:]).thing_id) + " likes!")
+    elif command == 'scoreboard' or command == 'anti-scoreboard':
+        display = 'DESC' if command == 'scoreboard' else 'ASC'
+        thing_list = db.scoreboard(display);
+        i = 0
+        scoreboard = []
+        for thing in thing_list:
+            scoreboard[i] = thing.name + ": " + thing.like_bal
+            i=i+1
+        message(channel, scoreboard.join("  \n")
+
     # COMMAND HANDLING
     if command.startswith("hi") or command.startswith("hello"):
-        response = "Hi there %s. Stay thirsty my friend." % ("<@" + sender_id + ">")
-    elif command.startswith("help"):
-        response = HELP_TEXT
-    elif command.startswith("about"):
-        response = "I'm a Slack chatbot written in Python. I don't always crash, but when I do, call Zach."
-    elif command.startswith("bitcoin") or command.startswith("btc"):
-        try:
-            btc_price = api_calls.getBTCPrice()
-            response = "The current price of Bitcoin is $%.2f USD." % btc_price
-        except:
-            response = "There was a problem retrieving the Bitcoin price."
-    elif command.startswith('id'):
-        response = "Your user ID is: %s." % sender_id
-    elif command.startswith("me"):
-        user = db.get_user(sender_id)
-        if user is None:
-            response = "I don't have you registered yet. Please register with *register [first_name] [last_name]*."
-        else:
-            response = "Hi, you're %s %s. You have %s likes. Stay thirsty my friend." % (user.first_name, user.last_name, user.like_bal)
-    elif command.startswith("register"):
-        strings = text.split(" ")
-        valid = False
-        if len(strings) == 4:
-            first_name = strings[2].capitalize()
-            last_name = strings[3].capitalize()
-            if first_name.isalpha() and last_name.isalpha():
-                valid = True
+        response = "Hi there %s. u r weird." % ("<@" + sender_id + ">")
 
-        if valid:
-            user = db.get_user(sender_id)
-            if user:
-                response = "You are already registered!"
-            else:
-                db.create_user(sender_id, first_name, last_name)
-                response = "You have been registered successfully."
-        else:
-            response = "Just because I climb mountains in my sleep doesn't mean I can register you without your name.\n"
-            response += "Proper usage: *register* _*[first_name]*_ _*[last_name]*_"
-    elif command.startswith("likes"):
-        user = db.get_user(sender_id)
-        if user is None:
-            response = "You must register to have a like count.\nTry *register* _*[first_name]*_ _*[last_name]*_"
-        else:
-            response = "Your like count is *%s*." % user.like_bal
-    elif command.startswith("scoreboard"):
-        response = "Current scoreboard:\n"
-        users = db.get_users()
-        for user in users:
-            response += "\t%s %s:\t%s\n" % (user.first_name, user.last_name, user.like_bal)
-    elif command.startswith("kss"):
-        try:
-            kss_price = api_calls.getKohlsPrice()
-            response = "Kohl's Corporation (NYSE:KSS) current stock price: *$%.2f*" % kss_price
-        except:
-            response = "There was a problem retrieving the stock price."
-    elif command.startswith("stock"):
-        try:
-            strings = text.split(" ")
-            ticker = None
-            valid = False
-            if len(strings) == 3:
-                ticker = strings[2]
-                if ticker.isalpha():
-                    valid = True
-                    ticker = ticker.upper()
-            if valid:
-                stock_price = api_calls.getStockPrice(ticker)
-                if stock_price == None:
-                    response = "I was unable to retrieve the stock price for that ticker."
-                else:
-                    response = "Stock price for %s is $%.2f." % (ticker, stock_price)
-            else:
-                response = "Just because I climb mountains in my sleep doesn't mean I know what stock you want.\n"
-                response += "Proper usage: *stock* _*[ticker]*_"
-        except:
-            response = "There was a problem retrieving the stock price."
-    elif command.startswith("coinflip") or command.startswith("flip"):
-        strings = text.split(" ")
-        declare = None
-        declare_txt = None
-        flip = random.randint(0, 1)
-        if len(strings) == 3:
-            guess = strings[2].lower()
-            if guess == "heads" or guess == "head" or guess == "h":
-                declare = 0
-                declare_txt = "HEADS"
-            elif guess == "tails" or guess == "tail" or guess == "t":
-                declare = 1
-                declare_txt = "TAILS"
-        if declare is not None:
-            if flip == 0:
-                response = "_It's *HEADS*_. You guessed _*%s*_.\n" % declare_txt
-            else:
-                response = "_It's *TAILS*_. You guessed _*%s*_.\n" % declare_txt
-            if declare == flip:
-                response += "You guessed correctly!"
-            else:
-                response += "You guessed incorrectly.."
-        else:
-            response = "You must guess _*HEADS*_ or _*TAILS*_."
-    elif command.startswith("dog"):
-        image_url = api_calls.getRandomDog()
-        if image_url is not None:
-            response = "Here's a random dog."
-            attachments = [{"title": "Random Dog", "image_url": image_url}]
-        else:
-            response = "For some reason I was unable to find a random dog picture :("
-    elif command.startswith("trump"):
-        quote = api_calls.getTrumpQuote()
-        if quote is not None:
-            attachments = [{
-                "pretext": "Here's a random quote from Donald Trump.",
-                "author_name": "Donald J Trump",
-                "text": quote,
-                "footer": "The Most Interesting Man in The World Bot",
-                "footer_icon": "https://i.pinimg.com/originals/7c/c7/a6/7cc7a630624d20f7797cb4c8e93c09c1.png"
-            }]
-            response = " "
-        else:
-            response = "Unable to get a Donald Trump quote."
 
+def message(channel, response): 
     # Sends response back to channel.
     slack_client.api_call(
         "chat.postMessage",
         channel=channel,
         as_user=True,
-        text=response or default_response,
-        attachments=attachments
+        text=response or "no u",
+        attachments=None
     )
-
 
 if __name__ == "__main__":
     logging.basicConfig(filename="botlog.log", level=logging.INFO, format='%(asctime)s %(message)s')
@@ -217,7 +117,7 @@ if __name__ == "__main__":
         # Read bot's user ID by calling Web API method `auth.test`
         starterbot_id = slack_client.api_call("auth.test")["user_id"]
 
-        db = TMIMDatabase()
+        db = LikeBotDatabase()
 
         while True:
             command, user_id, channel, text = parse_bot_commands(slack_client.rtm_read())
@@ -227,6 +127,3 @@ if __name__ == "__main__":
 
     else:
         print("Connection failed.")
-
-
-
