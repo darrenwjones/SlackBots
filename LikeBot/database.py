@@ -14,17 +14,16 @@ class LikeBotDatabase:
         self.con = mysql.connector.connect(
             host=db_config['host'],
             user=db_config['user'],
-            passwd=db_config['passwd'],
+            passwd=db_config['password'],
             database=db_config['database']
         )
-        print("Connected to database.")
 
     def __init__(self):
         print("Connecting to database..")
         self.con = mysql.connector.connect(
             host=db_config['host'],
             user=db_config['user'],
-            passwd=db_config['passwd'],
+            passwd=db_config['password'],
             database=db_config['database']
         )
         print("Connected to database.")
@@ -32,37 +31,27 @@ class LikeBotDatabase:
 
     def getName(self, uid):
         self.db_connect()
-        name = None
+        thing = None
         cursor = self.con.cursor()
-        sql = "SELECT * FROM things WHERE UID=%s"
-        cursor.execute(sql, (uid))
+        sql = "SELECT * FROM things WHERE UID = %s"
+        cursor.execute(sql, (uid,))
         rs_thing = cursor.fetchone()
         if rs_thing is not None:
             thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
         cursor.close()
         self.con.close()
+        if thing is None:
+            print("pls register first, my guy")
+            return None
         return thing.name
-	
-    def getLikes(self, thing_id):
-        self.db_connect()
-        name = None
-        cursor = self.con.cursor()
-        sql = "SELECT * FROM things WHERE UID=%s"
-        cursor.execute(sql, (uid))
-        rs_thing = cursor.fetchone()
-        if rs_thing is not None:
-            thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
-        cursor.close()
-        self.con.close()
-        return thing.like_bal
- 
+    
     def addLikes(self, thing_id, likes):
         self.db_connect()
         cursor = self.con.cursor()
-        sql = "INSERT INTO things(thing_id, like_bal) VALUES(%s, %s) ON DUPLICATE KEY UPDATE like_bal=like_bal+%s"
-        cursor.execute(sql, (thing_id, likes, likes))
+        sql = "UPDATE things SET like_bal=like_bal + %s WHERE thing_id = %s"
+        cursor.execute(sql, (likes, thing_id,))
         self.con.commit()
-	cursor.close()
+        cursor.close()
         self.con.close()
 
     def getThing(self, name):
@@ -70,7 +59,7 @@ class LikeBotDatabase:
         thing = None
         cursor = self.con.cursor()
         sql = "SELECT * FROM things WHERE name = %s"
-        cursor.execute(sql, (name))
+        cursor.execute(sql, (name,))
         rs_thing = cursor.fetchone()
         if rs_thing is not None:
             thing = Thing(rs_thing[0], rs_thing[1], rs_thing[2], rs_thing[3], rs_thing[4], rs_thing[5], rs_thing[6])
@@ -78,12 +67,21 @@ class LikeBotDatabase:
         self.con.close()
         return thing
 
+    def createThing(self, name):
+        self.db_connect()
+        cursor = self.con.cursor()
+        sql = "INSERT IGNORE INTO things(name) VALUES(%s)"
+        cursor.execute(sql, (name,))
+        self.con.commit()
+        cursor.close()
+        self.con.close() 
+
     def scoreboard(self, display):
-	self.db_connect()
+        self.db_connect()
         cursor = self.con.cursor()
         thing_list = []
-	sql = "SELECT * FROM things ORDER BY like_bal " + display + " LIMIT 10"
-	cursor.execute(sql)
+        sql = "SELECT * FROM things ORDER BY like_bal " + display + " LIMIT 10"
+        cursor.execute(sql)
         rs = cursor.fetchall()
 
         for rs_thing in rs:

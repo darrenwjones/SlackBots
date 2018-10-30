@@ -12,7 +12,6 @@ import random
 from slackclient import SlackClient
 from database import LikeBotDatabase
 from config import SLACK_BOT_TOKEN
-import api_calls
 
 # Instantiate Slack Client
 slack_client = SlackClient(SLACK_BOT_TOKEN)
@@ -68,37 +67,74 @@ def handle_command(command, channel, sender_id, text):
     logging.info("type=command userid=%s command=%s text=%s" % (sender_id, command.lower(), text))
     # Finds and executes given command, filling in response
     command = command.lower()
+    msg = str(" ".join(text.lower().split(" ")[1:]))
     response = None
     attachments = None
 
     print(text)
 
-    commands = command.split(" ")
+    commands = msg.split(" ")
     main_commands = {'like':1,'dislike':-1,'love':2,'hate': -2}
 
-    if command[0] in main_commands:
-        if db.getName(sender_id) == commands[1:]:
-            message(channel, "you cannot " + command[0] + " yourself, silly willy")
+    if commands[0] in main_commands:
+        name = " ".join(commands[1:])
+        if db.getName(sender_id) == name:
+            message(channel, "you cannot " + commands[0] + " yourself, silly willy")
         else:
-            db.addLikes(getThing(commands[1:]), main_commands[command[0]])
-            message(channel, db.getName(sender_id) + " " + commands[0] + "d " + commands[1:] + " and added " + main_commands[command[0]]
-                    + " likes. " + commands[1:] + " now has " + db.getLikes(getThing(commands[1:]).thing_id) + " likes!")
-    elif command == 'scoreboard' or command == 'anti-scoreboard':
-        display = 'DESC' if command == 'scoreboard' else 'ASC'
+            name = " ".join(commands[1:]).lower()
+            thing = db.getThing(name)
+            if thing:
+                db.addLikes(thing.thing_id, main_commands[commands[0]])
+                likes = str(thing.like_bal + main_commands[commands[0]])
+                message(channel, db.getName(sender_id) + " " + commands[0] + "d '" + name + "' and added " + str(main_commands[commands[0]])
+                        + " like(s). '" + name + "' now has " + likes + " like(s)!")
+            else:
+                db.createThing(name);
+                thing = db.getThing(name)
+                if thing:
+                    db.addLikes(thing.thing_id, main_commands[commands[0]])
+                    likes = str(thing.like_bal + main_commands[commands[0]])
+                    message(channel, db.getName(sender_id) + " " + commands[0] + "d '" + name + "' and added " + str(main_commands[commands[0]])
+                            + " like(s). '" + name + "' now has " + likes + " like(s)!")
+    elif msg == 'scoreboard' or msg == 'anti-scoreboard':
+        display = 'DESC' if msg == 'scoreboard' else 'ASC'
         thing_list = db.scoreboard(display);
-        i = 0
         scoreboard = []
         for thing in thing_list:
-            scoreboard[i] = thing.name + ": " + thing.like_bal
-            i=i+1
-        message(channel, scoreboard.join("  \n")
+            scoreboard.append(thing.name + ": " + str(thing.like_bal))
+        message(channel, "  \n".join(scoreboard))
+    elif commands[0] == 'score':
+        name = " ".join(commands[1:])
+        thing = db.getThing(name)
+        if thing:
+            message(channel, "they haz " + str(thing.like_bal) + " likes")
+        else:
+            message(channel, "idk who that is")
+    elif commands[0] == 'fight':
+        fighter = db.getThing(db.getName(sender_id))
+        fightee = db.getThing(" ".join(commands[1:]))
 
-    # COMMAND HANDLING
-    if command.startswith("hi") or command.startswith("hello"):
-        response = "Hi there %s. u r weird." % ("<@" + sender_id + ">")
+        if fighter and fightee:
+            if db.getName(sender_id) == fightee.name:
+                message(channel, "you cannot fight yourself, silly willy")
+                return
 
+            if random.random() >= .5:
+                db.addLikes(fighter.thing_id, 2)
+                db.addLikes(fightee.thing_id, -2)
+                message(channel, fighter.name + " has won the fight and has stole 2 likes from " + fightee.name)
+            else:
+                db.addLikes(fighter.thing_id, -2)
+                db.addLikes(fightee.thing_id, 2)
+                message(channel, fightee.name + " has won the fight and has stole 2 likes from " + fighter.name)
+        else:
+            message(channel, "idk who u is trying to fight")
+    elif commands[0] == 'wager':
+        message(channel, "feature coming soon!")
+    else:
+        message(channel, response)
 
-def message(channel, response): 
+def message(channel, response):
     # Sends response back to channel.
     slack_client.api_call(
         "chat.postMessage",

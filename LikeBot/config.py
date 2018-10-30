@@ -3,11 +3,11 @@
 # DIRECTIONS: Rename this file to 'config.py' and fill in with your bot token
 #             and database credentials.
 
-SLACK_BOT_TOKEN = "8zfH4QVxMFcQwVXuA35mgxdV"
+SLACK_BOT_TOKEN = "xoxb-460655060743-464861658896-OizfDnvRcMXIPBpqIL3mY5ta"
 
 db_config = dict (
-        host="bobcat.zgillis.com",
+    host="bobcat.zgillis.com",
     user="gsbot",
-    passwd="SyrupSandwiches69$",
+    password="SyrupSandwiches69$",
     database="gsbot"
 )
