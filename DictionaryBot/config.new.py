@@ -5,9 +5,9 @@
 
 SLACK_BOT_TOKEN = "YOUR_BOT_TOKEN"
 
-db_config = dict (
-    host="HOSTNAME",
-    user="USERNAME",
-    passwd="PASSWORD",
-    database="DATABASE_NAME"
-)
+#db_config = dict (
+#    host="HOSTNAME",
+#    user="USERNAME",
+#    passwd="PASSWORD",
+#    database="DATABASE_NAME"
+#)
