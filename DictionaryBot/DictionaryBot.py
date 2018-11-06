@@ -14,6 +14,7 @@ import json
 import sqlite3
 from slackclient import SlackClient
 from config import SLACK_BOT_TOKEN
+from database import DictionaryBotDatabase
 from urllib.parse import quote
 
 # Instantiate Slack Client
@@ -21,17 +22,12 @@ slack_client = SlackClient(SLACK_BOT_TOKEN)
 starterbot_id = None
 
 # Database access
-db = None
+nameDB = None
 
 # Constants
 found = False
 RTM_READ_DELAY = 1 # 1-second delay RTM read
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
-HELP_TEXT = """
-
-  
-"""
-
 
 def parse_bot_commands(slack_events):
     for event in slack_events:
@@ -101,7 +97,7 @@ def display(channel, text):
     cur = db.cursor()
     cur.execute(sql, (text,))
     for row in cur:
-        message(channel, "According to *" + row[2] + "*, _" + row[0] + "_ is defined as:  \n•  " + row[1])
+        message(channel, "According to *" + nameDB.getName(row[2]) + "*, _" + row[0] + "_ is defined as:  \n•  " + row[1])
         found = True
     db.close()
 
@@ -124,7 +120,6 @@ def webster(channel, text):
         if msg is not None:
             for result in msg:
                 for defs in result['shortdef']:
-                    print("webster")
                     found = True
                     spelling = False
                     definitions.append(defs)
@@ -161,7 +156,6 @@ def oxford(channel, text):
                     for entry in lexical['entries']:
                         for senses in entry['senses']:
                             for defs in senses['definitions']:
-                                print("oxford")
                                 found = True
                                 definitions.append(defs)
 
@@ -189,12 +183,25 @@ if __name__ == "__main__":
 
         # Read bot's user ID by calling Web API method `auth.test`
         starterbot_id = slack_client.api_call("auth.test")["user_id"]
+        
+        try:
+            nameDB = DictionaryBotDatabase()
+        except Exception as e:
+            print(e)
 
         while True:
-            command, user_id, channel, text = parse_bot_commands(slack_client.rtm_read())
-            if command:
-                handle_command(command, channel, user_id, text)
-            time.sleep(RTM_READ_DELAY)
-
-    else:
-        print("Connection failed.")
+            try:
+                command, user_id, channel, text = parse_bot_commands(slack_client.rtm_read())
+                if command:
+                    handle_command(command, channel, user_id, text)
+                time.sleep(RTM_READ_DELAY)
+            except Exception as e:
+                print(e)
+                print("\nRESTARTING BOT LOGIC")
+                if slack_client.rtm_connect(with_team_state=False):
+                    starterbot_id = slack_client.api_call("auth.test")["user_id"]
+                    continue
+                else:
+                    exit(5)
+        else:
+            print("Connection failed.")

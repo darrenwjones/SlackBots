@@ -1,11 +1,10 @@
 # LikeBot
-# Author: Zachary Gillis
+# Author: Zachary Gillis & Darren Jones
 #
 # DATABASE ACCESS LAYER
 
 import mysql.connector
 from config import db_config
-
 
 class LikeBotDatabase:
     con = None
@@ -90,6 +89,42 @@ class LikeBotDatabase:
         cursor.close()
         self.con.close()
         return thing_list
+
+    def setWager(self, wager, wagee, amount):
+        self.db_connect()
+        cursor = self.con.cursor()
+        sql = "UPDATE things SET wager_thing_id=%s, wager_likes=%s WHERE thing_id = %s"
+        cursor.execute(sql, (wagee, amount, wager))
+        self.con.commit()
+        cursor.close()
+        self.con.close()
+
+    def setWagerResultWinner(self, winner):
+        self.db_connect()
+        cursor = self.con.cursor()
+        sql = "UPDATE things SET like_bal=(like_bal + wager_likes) WHERE wager_thing_id=%s"
+        cursor.execute(sql, (winner,))
+        self.con.commit()
+        cursor.close()
+        self.con.close()
+
+    def setWagerResultLoser(self, loser):
+        self.db_connect()
+        cursor = self.con.cursor()
+        sql = "UPDATE things SET like_bal=like_bal - wager_likes WHERE wager_thing_id=%s"
+        cursor.execute(sql, (loser,))
+        self.con.commit()
+        cursor.close()
+        self.con.close()
+
+    def clearWagers(self):
+        self.db_connect()
+        cursor = self.con.cursor()
+        sql = "UPDATE things SET wager_likes=0"
+        cursor.execute(sql, ())
+        self.con.commit()
+        cursor.close()
+        self.con.close()
 	
 class Thing:
     thing_id = None

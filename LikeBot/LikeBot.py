@@ -9,6 +9,7 @@ import time
 import re
 import random
 import requests
+import _thread
 from slackclient import SlackClient
 from database import LikeBotDatabase
 from config import SLACK_BOT_TOKEN
@@ -67,7 +68,7 @@ def handle_command(command, channel, sender_id, text):
     elif commands[0] == 'score':
         score(channel, sender_id, commands)
     elif commands[0] == 'fight':
-        fight(channel, sender_id, commands)    
+        _thread.start_new_thread(fight, (channel, sender_id, commands))    
     elif commands[0] == 'wager':
         wager(channel, sender_id, commands)
     elif msg == 'help':
@@ -79,7 +80,7 @@ def like(channel, sender_id, commands, msg, main_commands):
     
     name = " ".join(commands[1:])
     
-    if db.getName(sender_id) == name:
+    if db.getName(sender_id).lower() == name:
         message(channel, "you cannot " + commands[0] + " yourself, silly willy")
     else:
         name = " ".join(commands[1:]).lower()
@@ -121,29 +122,59 @@ def score(channel, sender_id, commands):
     else:
         message(channel, "idk who that is")
 
-def fight(channel, sender_id, commands):            
+def fight(channel, sender_id, commands):
+
     fighter = db.getThing(db.getName(sender_id))
     fightee = db.getThing(" ".join(commands[1:]))
 
     if fighter and fightee:
+
+        message(channel, "A fight is about to commence! Please send in your wagers")
+        time.sleep(15)
+        message(channel, "Here we go ladies and gentlemen")
         if db.getName(sender_id) == fightee.name:
             message(channel, "you cannot fight yourself, silly willy")
             return
 
         if random.random() >= .5:
+            db.setWagerResultWinner(fighter.thing_id)
+            db.setWagerResultLoser(fightee.thing_id)
             db.addLikes(fighter.thing_id, 2)
             db.addLikes(fightee.thing_id, -2)
             message(channel, fighter.name + " has won the fight and has stolen 2 likes from " + fightee.name)
         else:
+            db.setWagerResultWinner(fightee.thing_id)
+            db.setWagerResultLoser(fighter.thing_id)
             db.addLikes(fighter.thing_id, -2)
             db.addLikes(fightee.thing_id, 2)
             message(channel, fightee.name + " has won the fight and has stolen 2 likes from " + fighter.name)
     else:
         message(channel, "idk who u is trying to fight")
+    db.clearWagers()    
 
-def wager(channel, sender_id, commands):            
-    
-    message(channel, "IM WORKING ON IT")
+def wager(channel, sender_id, commands):
+
+    try:
+        wager = db.getThing(db.getName(sender_id))
+        wagee = db.getThing(" ".join(commands[1:-1]))
+        amount = commands[-1]
+   
+        if fighter and fightee:
+            if amount.isdigit():
+                wagerNum = int(amount)
+                if db.getThing(db.getName(sender_id)).like_bal <= 0:
+                    message(channel, "you have no likes so I am setting your wager to 1")
+                    wagerNum = 1
+                elif wagerNum > db.getThing(db.getName(sender_id)).like_bal:
+                    message(channel, "I am setting your wager equal to your like count, you sneaky lil snakey snake")
+                    wagerNum = db.getThing(db.getName(sender_id)).like_bal
+                db.setWager(wager.thing_id, wagee.thing_id, wagerNum)
+            else:
+                message(channel, "wot? That's not how we wager")
+        else:
+            message(channel, "idk who u is trying to bet on")
+    except:
+        message(channel, "Sorry, database conflict")
 
 def helper(channel):
 
@@ -167,12 +198,24 @@ if __name__ == "__main__":
 
         # Read bot's user ID by calling Web API method `auth.test`
         starterbot_id = slack_client.api_call("auth.test")["user_id"]
-        db = LikeBotDatabase()
+        try:
+            db = LikeBotDatabase()
+        except Exception as e:
+            print(e)
 
         while True:
-            command, user_id, channel, text = parse_bot_commands(slack_client.rtm_read())
-            if command:
-                handle_command(command, channel, user_id, text)
-            time.sleep(RTM_READ_DELAY)
-    else:
-        print("Connection failed.")
+            try:
+                command, user_id, channel, text = parse_bot_commands(slack_client.rtm_read())
+                if command:
+                    handle_command(command, channel, user_id, text)
+                time.sleep(RTM_READ_DELAY)
+            except Exception as e:
+                print(e)
+                print("\nRESTARTING BOT LOGIC")
+                if slack_client.rtm_connect(with_team_state=False):
+                    starterbot_id = slack_client.api_call("auth.test")["user_id"]
+                    continue
+                else:
+                    exit(5)
+        else:
+            print("Connection failed.")
